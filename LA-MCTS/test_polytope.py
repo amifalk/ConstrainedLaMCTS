@@ -51,7 +51,9 @@ agent = MCTS(
              )
 
 agent.search(iterations = args.iterations)
-print(np.array([x[0] for x in agent.ROOT.bag]))
+
+print(agent.best_value_trace)
+#print(np.array([x[0] for x in agent.ROOT.bag]))
 """
 FAQ:
 

@@ -150,7 +150,9 @@ class MCTS:
         if value > self.curt_best_value:
             self.curt_best_value  = value
             self.curt_best_sample = sample 
-            self.best_value_trace.append( (value, self.sample_counter) )
+            if type(value) == np.ndarray:
+                value = value.flat[0]
+            self.best_value_trace.append( [value, self.sample_counter] )
         self.sample_counter += 1
         self.samples.append( (sample, value) )
         return value
@@ -312,6 +314,7 @@ class MCTS:
             print("current best f(x):", np.absolute(self.curt_best_value) )
             # print("current best x:", np.around(self.curt_best_sample, decimals=1) )
             print("current best x:", self.curt_best_sample )
-
+        
+        self.dump_trace()
 
 
