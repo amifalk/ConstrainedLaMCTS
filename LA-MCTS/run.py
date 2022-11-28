@@ -47,7 +47,7 @@ agent = MCTS(
              leaf_size = f.leaf_size, # tree leaf size
              kernel_type = f.kernel_type, #SVM configruation
              gamma_type = f.gamma_type,    #SVM configruation
-             solver_type = 'bo'
+             solver_type = 'turbo'
              )
 
 agent.search(iterations = args.iterations)
