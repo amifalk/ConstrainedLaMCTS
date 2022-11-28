@@ -287,7 +287,11 @@ class MCTS:
             curt_node       = curt_node.parent
 
     def search(self, iterations):
+        n_samples = 1000
+
         for idx in range(self.sample_counter, iterations):
+            if self.sample_counter > n_samples:
+                break
             print("")
             print("="*10)
             print("iteration:", idx)
