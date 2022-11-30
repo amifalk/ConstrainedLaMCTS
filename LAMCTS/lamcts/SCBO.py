@@ -138,6 +138,9 @@ def update_state(state, Y_next, C_next):
 
     return state
 
+def bilog(y):
+    #print(y)
+    return (y/y)*torch.log(1+torch.abs(y))
 
 class SCBO:
     def __init__(
@@ -230,12 +233,12 @@ class SCBO:
         if init_X is None or init_Y is None:
             train_X = self.get_initial_points(n_init)
             train_Y = torch.tensor(
-                [objective(np.array(x)) for x in train_X], dtype=dtype, device=device
+                [objective(x) for x in train_X], dtype=dtype, device=device
             ).unsqueeze(-1)
         else:
             train_X = init_X
             train_Y = init_Y
-        print(train_X)
+        #print(train_X)
         print(train_Y)
         train_constr = []
         valid_samples = 0
@@ -245,10 +248,12 @@ class SCBO:
             # okay yeah I should probably be using tensors but let's do this dumb
             # way first
             C = torch.tensor(
-                [constr(np.array(x)) for x in train_X], dtype=dtype, device=device
+                [constr(x) for x in train_X], dtype=dtype, device=device
             ).unsqueeze(-1)
             train_constr.append(C)
-        print(train_constr)
+            #print#("constr vector",C)
+        #print(bilog(train_constr))
+        #print(train_constr)
 
         state = TurboState(dim=self.dim, batch_size=self.batch_size)
         N_CANDIDATES = min(5000, max(2000, 200 * self.dim)) if not SMOKE_TEST else 4
@@ -278,14 +283,14 @@ class SCBO:
 
             # Evaluate both the objective and constraints for the selected candidaates
             Y_next = torch.tensor(
-                [objective(np.array(x)) for x in X_next], dtype=dtype, device=device
+                [objective(x) for x in X_next], dtype=dtype, device=device
             ).unsqueeze(-1)
 
             C_next_list = []
             for constr in constraints:
                 C_next_list.append(
                     torch.tensor(
-                        [constr(np.array(x)) for x in X_next], dtype=dtype, device=device
+                        [constr(x) for x in X_next], dtype=dtype, device=device
                     ).unsqueeze(-1)
                 )
 

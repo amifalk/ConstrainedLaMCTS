@@ -305,7 +305,7 @@ class MCTS:
                     samples, values = leaf.propose_samples_turbo( 10000, path, self.func )
                     #samples, values = leaf.propose_samples_turbo( 1000, path, self.func )
                 elif self.solver_type == 'scbo':
-                    samples, values = leaf.propose_samples_scbo( 10000, path, self.func )
+                    samples, values = leaf.propose_samples_scbo( 10000, path, self.func , self.ROOT)
                     #samples, values = leaf.propose_samples_scbo( 1000, path, self.func )
                 else:
                     raise Exception("solver not implemented")

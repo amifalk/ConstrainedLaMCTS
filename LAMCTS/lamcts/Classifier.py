@@ -21,7 +21,9 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 
 from .turbo.turbo_1 import Turbo1
-
+from .SCBO import *
+from botorch.utils.transforms import normalize
+from botorch.exceptions.errors import ModelFittingError
 # the input will be samples!
 class Classifier():
     def __init__(self, samples, dims, kernel_type, gamma_type = "auto"):
@@ -44,8 +46,8 @@ class Classifier():
         
         #good region is labeled as zero
         #bad  region is labeled as one
-        self.good_label_mean  = -1
-        self.bad_label_mean   = -1
+        self.good_label_mean  = 0
+        self.bad_label_mean   = 1
         
         self.update_samples(samples)
     
@@ -366,7 +368,64 @@ class Classifier():
     
         return proposed_X, fX
         
-    
+    def propose_samples_scbo(self, num_samples, path, func, root):
+        print(path)
+        # make a list of functions out of the constraints
+        # from path
+        constraints = []
+        #print(path[-1][0].bag)
+        def global_constr(x):
+            global_constrs = path[0]
+            x = unnormalize(np.array(x),(func.lb,func.ub))
+            if global_constrs["A_ineq"] is not None and global_constrs["b_ineq"] is not None:
+                A = global_constrs["A_ineq"]
+                b = global_constrs["b_ineq"]
+                return (-np.int64(A@x <= b)[0]+0.5)*2
+            elif global_constrs["A_eq"] is not None and global_constrs["b_eq"] is not None: 
+                A = global_constrs["A_eq"]
+                b = global_constrs["b_eq"]
+                return (-np.int64(np.isclose(A@x,b))[0]+0.5)*2
+        constraints.append(global_constr)
+        if len(path) > 1:
+            for node in path[1:]: # skip global constraint
+                boundary = node[0].classifier.svm
+                #idk really? will work with scbo
+                constraints.append(
+                    # makes me wish python had pipes like R...
+                    lambda x: 
+                        (np.int64(boundary.predict(
+                            np.array(
+                                unnormalize(x, (func.lb, func.ub))
+                            ).reshape(1,-1)
+                            )[0] == node[1])*(-1) + 0.5)*2
+                ) 
+                # node[1] store the direction to go
+        func_help = lambda x: func(unnormalize(np.array(x), (func.lb,func.ub)))
+        opt = SCBO(dim=self.dims, batch_size=1)
+        # can you use the function evaluations in the region already?
+        # or what if not enough?
+        if len(path) > 1:
+            print(path[-1])
+            init_X = normalize(torch.tensor([x[0] for x in path[-1][0].bag]), (func.lb, func.ub))
+            init_Y = torch.tensor([x[1] for x in path[-1][0].bag]).unsqueeze(-1)
+            X, fX = opt.optimize(
+                objective = func_help,
+                constraints = constraints,
+                n_init = 2*self.dims,
+                num_samples=num_samples,
+                init_X = init_X, init_Y = init_Y
+            )
+        else:
+            init_X = normalize(torch.tensor([x[0] for x in root.bag]), (func.lb, func.ub))
+            init_Y = torch.tensor([x[1] for x in root.bag]).unsqueeze(-1)
+            X, fX = opt.optimize(
+                objective = func_help,
+                constraints = constraints,
+                n_init = 2*self.dims,
+                num_samples=num_samples,
+                init_X = init_X, init_Y = init_Y
+            )
+        return unnormalize(X, (func.lb,func.ub)),fX
             
     ###########################
     # random sampling

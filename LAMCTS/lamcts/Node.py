@@ -117,8 +117,8 @@ class Node:
         proposed_X, fX = self.classifier.propose_samples_turbo(num_samples, path, func)
         return proposed_X, fX
 
-    def propose_samples_scbo(self,num_samples, path, func):
-        proposed_X, fX = self.classifier.propose_samples_scbo(num_samples, path, func)
+    def propose_samples_scbo(self,num_samples, path, func, root):
+        proposed_X, fX = self.classifier.propose_samples_scbo(num_samples, path, func, root)
         return proposed_X, fX
 
     def propose_samples_rand(self, num_samples):
