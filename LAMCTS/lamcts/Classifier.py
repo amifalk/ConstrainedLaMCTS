@@ -20,11 +20,12 @@ from sklearn.gaussian_process.kernels import ConstantKernel, Matern
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-from .turbo.turbo_1 import Turbo1
-from .SCBO import *
+from lamcts.turbo.turbo_1 import Turbo1
+from lamcts.SCBO import *
 from botorch.utils.transforms import normalize
 from botorch.exceptions.errors import ModelFittingError
 # the input will be samples!
+from lamcts.hopsy_sampler import *
 class Classifier():
     def __init__(self, samples, dims, kernel_type, gamma_type = "auto"):
         self.training_counter = 0
@@ -302,6 +303,42 @@ class Classifier():
                 return self.propose_rand_samples( nums_samples, lb, ub )
             else:
                 return final_cands
+    def propose_rand_samples_hopsy(self, num_samples, path, lb, ub):
+        # we still need an initial point: so, if we have one that works, use it.
+        # otherwise, just use accept-reject for 1 point.
+        assert len(lb) == len(ub)
+        dim = len(lb)
+        do_accept_reject = False
+        initial_X = None
+        if len(self.X) != 0:
+            # then check if there are any viable initial points
+            viable_init_points = self.X
+            global_constrs = path[0]
+            if global_constrs["A_ineq"] is not None and global_constrs["b_ineq"] is not None:
+                A = global_constrs["A_ineq"]
+                b = global_constrs["b_ineq"]
+                valid = [ np.all(A@x <= b) for x in viable_init_points]
+                viable_init_points = viable_init_points[valid,:]
+            for node in path[1:]: # skip global constraint
+                boundary = node[0].classifier.svm
+                if len(viable_init_points) == 0:
+                    break
+                assert len(viable_init_points) > 0
+                print(viable_init_points)
+                viable_init_points = viable_init_points[ boundary.predict( viable_init_points ) == node[1] ] 
+                # node[1] store the direction to go
+            if len(viable_init_points) == 0:
+                do_accept_reject = True
+            else:
+                initial_X = viable_init_points[0]
+        if do_accept_reject:
+            sample = self.propose_rand_samples_sobol(1, path, lb, ub)
+            initial_X = sample[0]
+        samples = propose_rand_samples_hopsy(num_samples, initial_X, path, lb, ub, dim)
+        # is everything in the region?
+        print(samples)
+        assert np.isclose(self.get_sample_ratio_in_region(samples, path)[0],1)
+        return samples
         
     def propose_samples_bo( self, nums_samples = 10, path = None, lb = None, ub = None, samples = None):
         ''' Proposes the next sampling point by optimizing the acquisition function. 
@@ -344,10 +381,11 @@ class Classifier():
     def propose_samples_turbo(self, num_samples, path, func):
         #get samples around the selected partition
         n_init = 30
-
+        X_init = self.propose_rand_samples_hopsy(n_init, path, func.lb, func.ub)
         turbo1 = Turbo1(
             path = path,
-            X_init = self.propose_rand_samples_sobol(30, path, func.lb, func.ub),
+            #X_init = self.propose_rand_samples_sobol(30, path, func.lb, func.ub),
+            X_init = X_init,
             f  = func,              # Handle to objective function
             lb = func.lb,           # Numpy array specifying lower bounds
             ub = func.ub,           # Numpy array specifying upper bounds
