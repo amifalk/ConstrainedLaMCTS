@@ -334,11 +334,11 @@ class Classifier():
         if do_accept_reject:
             sample = self.propose_rand_samples_sobol(1, path, lb, ub)
             initial_X = sample[0]
-        samples = propose_rand_samples_hopsy(num_samples, initial_X, path, lb, ub, dim)
+        accept_rate, samples = propose_rand_samples_hopsy(num_samples, initial_X, path, lb, ub, dim)
         # is everything in the region?
         print(samples)
         assert np.isclose(self.get_sample_ratio_in_region(samples, path)[0],1)
-        return samples
+        return accept_rate, samples
         
     def propose_samples_bo( self, nums_samples = 10, path = None, lb = None, ub = None, samples = None):
         ''' Proposes the next sampling point by optimizing the acquisition function. 
@@ -381,7 +381,7 @@ class Classifier():
     def propose_samples_turbo(self, num_samples, path, func):
         #get samples around the selected partition
         n_init = 30
-        X_init = self.propose_rand_samples_hopsy(n_init, path, func.lb, func.ub)
+        accept_rate, X_init = self.propose_rand_samples_hopsy(n_init, path, func.lb, func.ub)
         turbo1 = Turbo1(
             path = path,
             #X_init = self.propose_rand_samples_sobol(30, path, func.lb, func.ub),

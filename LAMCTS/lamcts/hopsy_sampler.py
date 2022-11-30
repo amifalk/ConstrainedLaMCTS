@@ -24,11 +24,10 @@ class LAMCTS_hopsy_model:
         else:
             return np.inf
 
-def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=10, threads=5):
+def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=10, threads=12):
     """
     sample a function using hopsy?
     """
-
     #TODO: add exception for if region is empty
     model = LAMCTS_hopsy_model(path, dim)
     global_constrs = path[0]
@@ -42,12 +41,23 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
         b = np.array([np.inf])
     problem = hopsy.Problem(A, b, model)
     problem = hopsy.add_box_constraints(problem=problem,lower_bound=lb,upper_bound=ub)
-    mc = hopsy.MarkovChain(problem, 
-        proposal=hopsy.UniformCoordinateHitAndRunProposal, 
-        starting_point=init_point)
+
+    # try making one markov chain for each thread?
+    # mc = hopsy.MarkovChain(problem, 
+    #     proposal=hopsy.UniformCoordinateHitAndRunProposal, 
+    #     starting_point=init_point)
+    mc = [
+        hopsy.MarkovChain(
+            problem, proposal=hopsy.UniformCoordinateHitAndRunProposal, starting_point=init_point
+        )
+        for i in range(threads)
+    ]
     # randomly generate the starting seed
-    rng = hopsy.RandomNumberGenerator(seed=np.random.randint(100))
-    acceptance_rate, states = hopsy.sample(mc, rng, n_samples=num_samples, thinning=thin,n_threads=threads)
+    rng = [hopsy.RandomNumberGenerator(seed=np.random.randint(100)) for i in range(threads)]
+    acceptance_rate, states = hopsy.sample(mc, rng, 
+        n_samples=num_samples, 
+        thinning=thin,
+        n_threads=threads)
     print("hopsy sampler acceptance rate:",acceptance_rate)
     # nested 2d array? idk
-    return states[0]
+    return acceptance_rate, states[0]
