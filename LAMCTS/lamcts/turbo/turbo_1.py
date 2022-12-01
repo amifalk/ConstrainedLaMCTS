@@ -22,7 +22,7 @@ from .gp import train_gp
 from .utils import from_unit_cube, to_unit_cube
 
 # idk what to do about imports
-from lamcts.hopsy_sampler import *
+from ConstrainedLaMCTS.LAMCTS.lamcts.hopsy_sampler import *
 
 class Turbo1:
     """The TuRBO-1 algorithm.
@@ -235,9 +235,10 @@ class Turbo1:
         lb = np.clip(x_center - weights * length / 2.0, 0.0, 1.0)
         ub = np.clip(x_center + weights * length / 2.0, 0.0, 1.0)
 
-        # try sampling with hopsy instead
+        # --------- try sampling with hopsy instead ------------ #
         # first un-transform the trust-region bounds
         # have to do the indexing, since it's a nested array with one element
+
         lb_tr_untransf = from_unit_cube(lb, func_lb, func_ub)[0]
         ub_tr_untransf = from_unit_cube(ub, func_lb, func_ub)[0]
         x_center_untransf = from_unit_cube(x_center, func_lb, func_ub)[0]
@@ -256,10 +257,13 @@ class Turbo1:
             self.dim
         )
         print(np.all([np.all(x <= func_ub) and np.all(x >= func_lb) for x in X_cand]))
-        # # Draw a Sobolev sequence in [lb, ub]
+
+        # ----------------- accept reject sampler ------------- #
+        # Draw a Sobolev sequence in [lb, ub]
         # final_cands = []
         # ratio = 0
 
+        # print("starting turbo sampler")
         # while len(final_cands) < self.n_cand and ratio < .9:
         #     #print(f"need: {len(final_cands)/self.n_cand}")
         #     seed = np.random.randint(int(1e6))
@@ -278,14 +282,14 @@ class Turbo1:
         #     X_cand[mask] = pert[mask]
 
         #     ratio, X_cand = self.get_sample_ratio_in_region(from_unit_cube(X_cand, np.squeeze(lb, axis=0), np.squeeze(ub, axis=0)), self.path)
-
+        #     #print("turbo sampler ratio:",ratio)
         #     final_cands.extend(X_cand.tolist())
 
         #     if len(final_cands) > self.n_cand:
         #         final_cands = np.array(final_cands)
         #         final_cands_idx  = np.random.choice( len(final_cands), self.n_cand)
         #         final_cands = final_cands[final_cands_idx]
-
+        # print("finished sampling, last sample ratio:", ratio)
         # X_cand = np.array(final_cands)
         # X_cand = to_unit_cube(X_cand, np.squeeze(lb, axis=0), np.squeeze(ub, axis=0))
         

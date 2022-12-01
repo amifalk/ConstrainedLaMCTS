@@ -20,12 +20,13 @@ from sklearn.gaussian_process.kernels import ConstantKernel, Matern
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
-from lamcts.turbo.turbo_1 import Turbo1
-from lamcts.SCBO import *
+
 from botorch.utils.transforms import normalize
 from botorch.exceptions.errors import ModelFittingError
 # the input will be samples!
-from lamcts.hopsy_sampler import *
+from ConstrainedLaMCTS.LAMCTS.lamcts.hopsy_sampler import *
+from ConstrainedLaMCTS.LAMCTS.lamcts.turbo.turbo_1 import Turbo1
+from ConstrainedLaMCTS.LAMCTS.lamcts.SCBO import *
 class Classifier():
     def __init__(self, samples, dims, kernel_type, gamma_type = "auto"):
         self.training_counter = 0

@@ -48,7 +48,7 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
     #     starting_point=init_point)
     mc = [
         hopsy.MarkovChain(
-            problem, proposal=hopsy.UniformCoordinateHitAndRunProposal, starting_point=init_point
+            problem, proposal=hopsy.DikinWalkProposal, starting_point=init_point
         )
         for i in range(threads)
     ]

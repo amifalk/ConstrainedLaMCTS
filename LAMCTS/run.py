@@ -45,7 +45,8 @@ agent = MCTS(
              func = f,               # function object to be optimized
              Cp = f.Cp,              # Cp for MCTS
              leaf_size = f.leaf_size, # tree leaf size
-             kernel_type = f.kernel_type, #SVM configruation
+             #kernel_type = f.kernel_type, #SVM configruation
+             kernel_type = "linear", #SVM configruation
              gamma_type = f.gamma_type,    #SVM configruation
              solver_type = 'turbo'
              )
