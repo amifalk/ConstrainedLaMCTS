@@ -21,6 +21,8 @@ from torch.quasirandom import SobolEngine
 from .gp import train_gp
 from .utils import from_unit_cube, to_unit_cube
 
+# idk what to do about imports
+from ConstrainedLaMCTS.LAMCTS.lamcts.hopsy_sampler import *
 
 class Turbo1:
     """The TuRBO-1 algorithm.
@@ -197,7 +199,7 @@ class Turbo1:
         assert len(cands) <= total
         return ratio, cands
 
-    def _create_candidates(self, X, fX, length, n_training_steps, hypers):
+    def _create_candidates(self, X, fX, length, n_training_steps, hypers, func_lb, func_ub):
         """Generate candidates assuming X has been scaled to [0,1]^d."""
         # Pick the center as the point with the smallest function values
         # NOTE: This may not be robust to noise, in which case the posterior mean of the GP can be used instead
@@ -233,44 +235,69 @@ class Turbo1:
         lb = np.clip(x_center - weights * length / 2.0, 0.0, 1.0)
         ub = np.clip(x_center + weights * length / 2.0, 0.0, 1.0)
 
+        # --------- try sampling with hopsy instead ------------ #
+        # first un-transform the trust-region bounds
+        # have to do the indexing, since it's a nested array with one element
+
+        lb_tr_untransf = from_unit_cube(lb, func_lb, func_ub)[0]
+        ub_tr_untransf = from_unit_cube(ub, func_lb, func_ub)[0]
+        x_center_untransf = from_unit_cube(x_center, func_lb, func_ub)[0]
+
+        print("trust region: lb, ub, center")
+        print(lb_tr_untransf)
+        print(ub_tr_untransf)
+        print(x_center_untransf)
+        # todo: if accept_rate too low... then do what?
+        accept_rate, X_cand = propose_rand_samples_hopsy(
+            self.n_cand, 
+            x_center_untransf, 
+            self.path, 
+            lb_tr_untransf, 
+            ub_tr_untransf, 
+            self.dim
+        )
+        print(np.all([np.all(x <= func_ub) and np.all(x >= func_lb) for x in X_cand]))
+
+        # ----------------- accept reject sampler ------------- #
         # Draw a Sobolev sequence in [lb, ub]
-        final_cands = []
-        ratio = 0
+        # final_cands = []
+        # ratio = 0
 
-        while len(final_cands) < self.n_cand and ratio < .9:
-            #print(f"need: {len(final_cands)/self.n_cand}")
-            seed = np.random.randint(int(1e6))
-            sobol = SobolEngine(self.dim, scramble=True, seed=seed)
-            pert = sobol.draw(self.n_cand).to(dtype=dtype, device=device).cpu().detach().numpy()
-            pert = lb + (ub - lb) * pert
+        # print("starting turbo sampler")
+        # while len(final_cands) < self.n_cand and ratio < .9:
+        #     #print(f"need: {len(final_cands)/self.n_cand}")
+        #     seed = np.random.randint(int(1e6))
+        #     sobol = SobolEngine(self.dim, scramble=True, seed=seed)
+        #     pert = sobol.draw(self.n_cand).to(dtype=dtype, device=device).cpu().detach().numpy()
+        #     pert = lb + (ub - lb) * pert
 
-            # Create a perturbation mask
-            prob_perturb = min(20.0 / self.dim, 1.0)
-            mask = np.random.rand(self.n_cand, self.dim) <= prob_perturb
-            ind = np.where(np.sum(mask, axis=1) == 0)[0]
-            mask[ind, np.random.randint(0, self.dim - 1, size=len(ind))] = 1
+        #     # Create a perturbation mask
+        #     prob_perturb = min(20.0 / self.dim, 1.0)
+        #     mask = np.random.rand(self.n_cand, self.dim) <= prob_perturb
+        #     ind = np.where(np.sum(mask, axis=1) == 0)[0]
+        #     mask[ind, np.random.randint(0, self.dim - 1, size=len(ind))] = 1
 
-            # Create candidate points
-            X_cand = x_center.copy() * np.ones((self.n_cand, self.dim))
-            X_cand[mask] = pert[mask]
+        #     # Create candidate points
+        #     X_cand = x_center.copy() * np.ones((self.n_cand, self.dim))
+        #     X_cand[mask] = pert[mask]
 
-            ratio, X_cand = self.get_sample_ratio_in_region(from_unit_cube(X_cand, np.squeeze(lb, axis=0), np.squeeze(ub, axis=0)), self.path)
+        #     ratio, X_cand = self.get_sample_ratio_in_region(from_unit_cube(X_cand, np.squeeze(lb, axis=0), np.squeeze(ub, axis=0)), self.path)
+        #     #print("turbo sampler ratio:",ratio)
+        #     final_cands.extend(X_cand.tolist())
 
-            final_cands.extend(X_cand.tolist())
-
-            if len(final_cands) > self.n_cand:
-                final_cands = np.array(final_cands)
-                final_cands_idx  = np.random.choice( len(final_cands), self.n_cand)
-                final_cands = final_cands[final_cands_idx]
-
-        X_cand = np.array(final_cands)
-        X_cand = to_unit_cube(X_cand, np.squeeze(lb, axis=0), np.squeeze(ub, axis=0))
+        #     if len(final_cands) > self.n_cand:
+        #         final_cands = np.array(final_cands)
+        #         final_cands_idx  = np.random.choice( len(final_cands), self.n_cand)
+        #         final_cands = final_cands[final_cands_idx]
+        # print("finished sampling, last sample ratio:", ratio)
+        # X_cand = np.array(final_cands)
+        # X_cand = to_unit_cube(X_cand, np.squeeze(lb, axis=0), np.squeeze(ub, axis=0))
         
-        # import matplotlib.pyplot as plt
-        # if ratio < .8:
-        #     print(f'ratio: {ratio}')
-        #     plt.scatter(X_cand.T[0], X_cand.T[1])
-        #     plt.show()
+        # # import matplotlib.pyplot as plt
+        # # if ratio < .8:
+        # #     print(f'ratio: {ratio}')
+        # #     plt.scatter(X_cand.T[0], X_cand.T[1])
+        # #     plt.show()
 
         # Figure out what device we are running on
         if len(X_cand) < self.min_cuda:
@@ -341,12 +368,14 @@ class Turbo1:
             
             # Create th next batch
             X_cand, y_cand, _ = self._create_candidates(
-                X, fX, length=self.length, n_training_steps=self.n_training_steps, hypers={}
+                X, fX, length=self.length, n_training_steps=self.n_training_steps, hypers={},
+                func_lb=self.lb, func_ub=self.ub
             )
             X_next = self._select_candidates(X_cand, y_cand)
             
             # Undo the warping
-            X_next = from_unit_cube(X_next, self.lb, self.ub)
+            # no longer necessary with hopsy sampler: we don't normalize
+            # X_next = from_unit_cube(X_next, self.lb, self.ub)
             
             # Evaluate batch
             fX_next = np.array([[self.f(x)] for x in X_next])
