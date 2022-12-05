@@ -58,6 +58,7 @@ class Turbo1:
         ub,
         n_init,
         max_evals,
+        num_threads,
         batch_size=1,
         verbose=True,
         use_ard=True,
@@ -100,6 +101,8 @@ class Turbo1:
         self.use_ard = use_ard
         self.max_cholesky_size = max_cholesky_size
         self.n_training_steps = n_training_steps
+
+        self.num_threads = num_threads
 
         # Hyperparameters
         self.mean = np.zeros((0, 1))
@@ -249,12 +252,14 @@ class Turbo1:
         print(x_center_untransf)
         # todo: if accept_rate too low... then do what?
         accept_rate, X_cand = propose_rand_samples_hopsy(
-            self.n_cand, 
-            x_center_untransf, 
-            self.path, 
-            lb_tr_untransf, 
-            ub_tr_untransf, 
-            self.dim
+            num_samples = self.n_cand, 
+            init_point = x_center_untransf, 
+            path = self.path, 
+            lb = lb_tr_untransf, 
+            ub = ub_tr_untransf, 
+            dim = self.dim,
+            threads = self.num_threads,
+            thin = self.dim*2 # heuristic? need more thinning as dims go up
         )
         print(np.all([np.all(x <= func_ub) and np.all(x >= func_lb) for x in X_cand]))
 

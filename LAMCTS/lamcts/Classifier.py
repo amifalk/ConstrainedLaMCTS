@@ -379,7 +379,7 @@ class Classifier():
     ###########################
     # version 1: select a partition, perform one-time turbo search
 
-    def propose_samples_turbo(self, num_samples, path, func):
+    def propose_samples_turbo(self, num_samples, path, func, num_threads):
         #get samples around the selected partition
         n_init = 30
         accept_rate, X_init = self.propose_rand_samples_hopsy(n_init, path, func.lb, func.ub)
@@ -399,7 +399,8 @@ class Classifier():
             n_training_steps=50,    # Number of steps of ADAM to learn the hypers
             min_cuda=1024,          #  Run on the CPU for small datasets
             device="cpu",           # "cpu" or "cuda"
-            dtype="float32"        # float64 or float32
+            dtype="float32",        # float64 or float32
+            num_threads = num_threads
         )
     
         proposed_X, fX = turbo1.optimize( )

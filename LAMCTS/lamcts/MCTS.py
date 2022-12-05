@@ -29,7 +29,7 @@ class MCTS:
     def __init__(self, 
         lb, ub, 
         A_eq, b_eq, A_ineq, b_ineq, 
-        ninits, func, dims,
+        ninits, func, dims, num_threads,
         Cp = 1, leaf_size = 20, kernel_type = "rbf", gamma_type = "auto", solver_type = 'bo'):
         self.dims                    =  dims
         self.samples                 =  []
@@ -45,6 +45,7 @@ class MCTS:
         self.A_ineq                  = A_ineq
         self.b_ineq                  = b_ineq
         # -----------------------------------
+        self.num_threads             =  num_threads
         self.ninits                  =  ninits
         self.func                    =  func
         self.curt_best_value         =  float("-inf")
@@ -307,7 +308,7 @@ class MCTS:
                 if self.solver_type == 'bo':
                     samples = leaf.propose_samples_bo( 1, path, self.lb, self.ub, self.samples )
                 elif self.solver_type == 'turbo':
-                    samples, values = leaf.propose_samples_turbo( 10000, path, self.func )
+                    samples, values = leaf.propose_samples_turbo( 10000, path, self.func, num_threads=self.num_threads)
                     #samples, values = leaf.propose_samples_turbo( 1000, path, self.func )
                 elif self.solver_type == 'scbo':
                     samples, values = leaf.propose_samples_scbo( 10000, path, self.func , self.ROOT)
