@@ -113,8 +113,8 @@ class Node:
         proposed_X = self.classifier.propose_samples_bo(num_samples, path, lb, ub, samples)
         return proposed_X
         
-    def propose_samples_turbo(self, num_samples, path, func):
-        proposed_X, fX = self.classifier.propose_samples_turbo(num_samples, path, func)
+    def propose_samples_turbo(self, num_samples, path, func, num_threads):
+        proposed_X, fX = self.classifier.propose_samples_turbo(num_samples, path, func, num_threads=num_threads)
         return proposed_X, fX
 
     def propose_samples_scbo(self,num_samples, path, func, root):
