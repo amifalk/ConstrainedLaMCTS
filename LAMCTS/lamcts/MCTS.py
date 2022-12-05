@@ -226,8 +226,13 @@ class MCTS:
                 self = pickle.load(json_data)
                 print("=====>loads:", len(self.samples)," samples" )
 
-    def dump_agent(self):
-        node_path = 'mcts_agent'
+    def dump_agent(self, out_dir=None, name='mcts_agent'):
+        if out_dir is None:
+            node_path = name
+        elif not os.path.exists(out_dir):
+            node_path = name
+        else:
+            node_path = out_dir + name
         print("dumping the agent.....")
         with open(node_path,"wb") as outfile:
             pickle.dump(self, outfile)
