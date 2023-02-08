@@ -223,33 +223,33 @@ class MCTS:
         self.CURT = self.ROOT
     
     def load_agent(self, load_path='mcts_agent'):
-        if os.path.isfile(load_path) == True:
-            with open(load_path, 'rb') as data:
-                #self = dill.load(data)
-                state = dill.load(data)
-                self.dims = state["dims"]
-                self.samples = state["samples"]
-                self.nodes = state["nodes"]
-                self.Cp = state["Cp"]
-                self.lb = state["lb"]
-                self.ub = state["ub"]
-                self.A_eq = state["A_eq"]
-                self.b_eq = state["b_eq"]
-                self.A_ineq = state["A_ineq"]
-                self.b_ineq = state["b_ineq"]
-                self.num_threads = state["num_threads"]
-                self.ninits = state["ninits"]
-                self.curt_best_value = state["curt_best_value"]
-                self.curt_best_sample = state["curt_best_sample"]
-                self.best_value_trace = state["best_value_trace"]
-                self.sample_counter = state["sample_counter"]
-                self.visualization = state["visualization"]
-                self.LEAF_SAMPLE_SIZE = state["LEAF_SAMPLE_SIZE"]
-                self.kernel_type = state["kernel_type"]
-                self.gamma_type = state["gamma_type"]
-                self.solver_type = state["solver_type"]
-                print("=====>loads:", len(self.samples)," samples" )
-                print("WARNING: Be sure to restore the state of the function!! It has not been loaded.")
+        with open(load_path, 'rb') as data:
+            #self = dill.load(data)
+            print("loading state data",flush=True)
+            state = dill.load(data)
+            self.dims = state["dims"]
+            self.samples = state["samples"]
+            self.nodes = state["nodes"]
+            self.Cp = state["Cp"]
+            self.lb = state["lb"]
+            self.ub = state["ub"]
+            self.A_eq = state["A_eq"]
+            self.b_eq = state["b_eq"]
+            self.A_ineq = state["A_ineq"]
+            self.b_ineq = state["b_ineq"]
+            self.num_threads = state["num_threads"]
+            self.ninits = state["ninits"]
+            self.curt_best_value = state["curt_best_value"]
+            self.curt_best_sample = state["curt_best_sample"]
+            self.best_value_trace = state["best_value_trace"]
+            self.sample_counter = state["sample_counter"]
+            self.visualization = state["visualization"]
+            self.LEAF_SAMPLE_SIZE = state["LEAF_SAMPLE_SIZE"]
+            self.kernel_type = state["kernel_type"]
+            self.gamma_type = state["gamma_type"]
+            self.solver_type = state["solver_type"]
+            print("=====>loads:", len(self.samples)," samples",flush=True)
+            print("WARNING: Be sure to restore the state of the function!! It has not been loaded.",flush=True)
 
 
     def dump_agent(self, out_dir=None, name='mcts_agent'):
