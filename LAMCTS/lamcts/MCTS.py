@@ -23,6 +23,8 @@ from torch.quasirandom import SobolEngine
 import torch
 
 from diversipy import polytope
+import dill
+
 class MCTS:
     #############################################
 
@@ -220,11 +222,10 @@ class MCTS:
     def reset_to_root(self):
         self.CURT = self.ROOT
     
-    def load_agent(self):
-        node_path = 'mcts_agent'
-        if os.path.isfile(node_path) == True:
-            with open(node_path, 'rb') as json_data:
-                self = pickle.load(json_data)
+    def load_agent(self, load_path='mcts_agent'):
+        if os.path.isfile(load_path) == True:
+            with open(load_path, 'rb') as data:
+                self = dill.load(data)
                 print("=====>loads:", len(self.samples)," samples" )
 
     def dump_agent(self, out_dir=None, name='mcts_agent'):
@@ -236,12 +237,19 @@ class MCTS:
             node_path = out_dir + name
         print("dumping the agent.....")
         with open(node_path,"wb") as outfile:
-            pickle.dump(self, outfile)
+            dill.dump(self, outfile)
             
-    def dump_samples(self):
-        sample_path = 'samples_'+str(self.sample_counter)
-        with open(sample_path, "wb") as outfile:
-            pickle.dump(self.samples, outfile)
+    def dump_samples(self, out_dir=None, name='mcts_agent'):
+        sample_path = '{}_samples_'+str(self.sample_counter)
+        if out_dir is None:
+            path = sample_path.format(name)
+        elif not os.path.exists(out_dir):
+            path = sample_path.format(name)
+        else:
+            path = out_dir + sample_path.format(name)
+
+        with open(path, "wb") as outfile:
+            dill.dump(self.samples, outfile)
     
     def dump_trace(self):
         trace_path = 'best_values_trace'

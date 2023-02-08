@@ -259,7 +259,7 @@ class Turbo1:
             ub = ub_tr_untransf, 
             dim = self.dim,
             threads = self.num_threads,
-            thin = self.dim*2 # heuristic? need more thinning as dims go up
+            thin = int(self.dim*1.5) # heuristic? need more thinning as dims go up
         )
         print(np.all([np.all(x <= func_ub) and np.all(x >= func_lb) for x in X_cand]))
 

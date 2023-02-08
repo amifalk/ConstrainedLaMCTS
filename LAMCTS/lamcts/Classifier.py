@@ -304,7 +304,7 @@ class Classifier():
                 return self.propose_rand_samples( nums_samples, lb, ub )
             else:
                 return final_cands
-    def propose_rand_samples_hopsy(self, num_samples, path, lb, ub):
+    def propose_rand_samples_hopsy(self, num_samples, path, lb, ub,num_threads):
         # we still need an initial point: so, if we have one that works, use it.
         # otherwise, just use accept-reject for 1 point.
         assert len(lb) == len(ub)
@@ -335,7 +335,7 @@ class Classifier():
         if do_accept_reject:
             sample = self.propose_rand_samples_sobol(1, path, lb, ub)
             initial_X = sample[0]
-        accept_rate, samples = propose_rand_samples_hopsy(num_samples, initial_X, path, lb, ub, dim)
+        accept_rate, samples = propose_rand_samples_hopsy(num_samples, initial_X, path, lb, ub, dim, threads=num_threads)
         # is everything in the region?
         print(samples)
         assert np.isclose(self.get_sample_ratio_in_region(samples, path)[0],1)
@@ -382,7 +382,7 @@ class Classifier():
     def propose_samples_turbo(self, num_samples, path, func, num_threads):
         #get samples around the selected partition
         n_init = 30
-        accept_rate, X_init = self.propose_rand_samples_hopsy(n_init, path, func.lb, func.ub)
+        accept_rate, X_init = self.propose_rand_samples_hopsy(n_init, path, func.lb, func.ub, num_threads)
         turbo1 = Turbo1(
             path = path,
             #X_init = self.propose_rand_samples_sobol(30, path, func.lb, func.ub),
