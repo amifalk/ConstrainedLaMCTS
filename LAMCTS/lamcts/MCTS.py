@@ -225,8 +225,32 @@ class MCTS:
     def load_agent(self, load_path='mcts_agent'):
         if os.path.isfile(load_path) == True:
             with open(load_path, 'rb') as data:
-                self = dill.load(data)
+                #self = dill.load(data)
+                state = dill.load(data)
+                self.dims = state["dims"]
+                self.samples = state["samples"]
+                self.nodes = state["nodes"]
+                self.Cp = state["Cp"]
+                self.lb = state["lb"]
+                self.ub = state["ub"]
+                self.A_eq = state["A_eq"]
+                self.b_eq = state["b_eq"]
+                self.A_ineq = state["A_ineq"]
+                self.b_ineq = state["b_ineq"]
+                self.num_threads = state["num_threads"]
+                self.ninits = state["ninits"]
+                self.curt_best_value = state["curt_best_value"]
+                self.curt_best_sample = state["curt_best_sample"]
+                self.best_value_trace = state["best_value_trace"]
+                self.sample_counter = state["sample_counter"]
+                self.visualization = state["visualization"]
+                self.LEAF_SAMPLE_SIZE = state["LEAF_SAMPLE_SIZE"]
+                self.kernel_type = state["kernel_type"]
+                self.gamma_type = state["gamma_type"]
+                self.solver_type = state["solver_type"]
                 print("=====>loads:", len(self.samples)," samples" )
+                print("WARNING: Be sure to restore the state of the function!! It has not been loaded.")
+
 
     def dump_agent(self, out_dir=None, name='mcts_agent'):
         if out_dir is None:
@@ -237,7 +261,34 @@ class MCTS:
             node_path = out_dir + name
         print("dumping the agent.....")
         with open(node_path,"wb") as outfile:
-            dill.dump(self, outfile)
+            # dill.dump(self, outfile)
+            # because the func object will contain a multiprocess.Pool,
+            # we cannot pickle it. So we just have to pickle everything 
+            # else and restore the state of the objective function manually.
+            state = {
+                "dims" : self.dims,
+                "samples" : self.samples,
+                "nodes" : self.nodes,
+                "Cp" : self.Cp,
+                "lb" : self.lb,
+                "ub" : self.ub,
+                "A_eq" : self.A_eq,
+                "b_eq" : self.b_eq,
+                "A_ineq" : self.A_ineq,
+                "b_ineq" : self.b_ineq,
+                "num_threads" : self.num_threads,
+                "ninits" : self.ninits,
+                "curt_best_value" : self.curt_best_value,
+                "curt_best_sample" : self.curt_best_sample,
+                "best_value_trace" : self.best_value_trace,
+                "sample_counter" : self.sample_counter,
+                "visualization" : self.visualization,
+                "LEAF_SAMPLE_SIZE" : self.LEAF_SAMPLE_SIZE,
+                "kernel_type" : self.kernel_type,
+                "gamma_type" : self.gamma_type,
+                "solver_type" : self.solver_type
+            }
+            dill.dump(state, outfile)
             
     def dump_samples(self, out_dir=None, name='mcts_agent'):
         sample_path = '{}_samples_'+str(self.sample_counter)
