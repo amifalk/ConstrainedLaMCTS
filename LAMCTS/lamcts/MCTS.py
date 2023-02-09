@@ -351,8 +351,8 @@ class MCTS:
             curt_node.n    += 1
             curt_node       = curt_node.parent
 
-    def search(self, iterations):
-        n_samples = 1000
+    def search(self, iterations, max_samples=np.inf):
+        n_samples = max_samples
 
         for idx in range(self.sample_counter, iterations):
             if self.sample_counter > n_samples:
