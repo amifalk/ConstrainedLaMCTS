@@ -258,9 +258,10 @@ class Turbo1:
             lb = lb_tr_untransf, 
             ub = ub_tr_untransf, 
             dim = self.dim,
-            threads = self.num_threads,
-            thin = int(self.dim*1.5) # heuristic? need more thinning as dims go up
+            threads = self.num_threads
+            #thin = int(self.dim*1.5) # heuristic? need more thinning as dims go up
         )
+        print("hopsy within turbo accept rate:",accept_rate)
         print(np.all([np.all(x <= func_ub) and np.all(x >= func_lb) for x in X_cand]))
 
         # ----------------- accept reject sampler ------------- #
@@ -347,6 +348,7 @@ class Turbo1:
         self._restart()
         
         # Generate and evalute initial design points
+        print("Evaluating initial points")
         fX_init = np.array([[self.f(x)] for x in self.X_init])
         
         # Update budget and set as initial data for this TR
