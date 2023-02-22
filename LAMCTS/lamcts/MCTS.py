@@ -32,7 +32,8 @@ class MCTS:
         lb, ub, 
         A_eq, b_eq, A_ineq, b_ineq, 
         ninits, func, dims, num_threads,
-        Cp = 1, leaf_size = 20, kernel_type = "rbf", gamma_type = "auto", solver_type = 'bo'):
+        Cp = 1, leaf_size = 20, kernel_type = "rbf", gamma_type = "auto", solver_type = 'bo',
+        turbo_max_samples=10000):
         self.dims                    =  dims
         self.samples                 =  []
         self.nodes                   =  []
@@ -61,6 +62,7 @@ class MCTS:
         self.gamma_type              =  gamma_type
         
         self.solver_type             =  solver_type #solver can be 'bo' or 'turbo'
+        self.turbo_max_samples       =  turbo_max_samples
         
         print("gamma_type:", gamma_type)
         
@@ -301,6 +303,40 @@ class MCTS:
 
         with open(path, "wb") as outfile:
             dill.dump(self.samples, outfile)
+
+    def load_samples(self, X, fX, best_X=None, best_fX=None):
+        """
+        X : list of numpy vectors
+        fX : list of scalars?
+        best_X, best_fX : optional 
+        """
+        self.samples = list(zip(X, fX))
+        self.sample_counter
+
+    def load_samples_from_file(samples, best_trace):
+        """
+        samples : path to csv containing samples
+        if n columns: 
+            columns 1 - (n-1) should contain the X,
+            column n should contain the function value
+        best_trace: 
+            path to csv containing best trace
+        """
+        samples_df = pd.read_csv(samples, header=None)
+        best_trace_df = pd.read_csv(best_trace, header=None)
+        ncol_samples = samples_df.shape[1]
+        nrow_samples = samples_df.shape[0]
+        X_samples = np.array(samples_df.iloc[:,0:ncol_samples-1])
+        fX_samples = np.array(samples_df.iloc[:,ncol_samples-1])
+        self.samples = list(zip(X_samples,fX_samples))
+
+        best_value_trace = np.array(best_trace_df.iloc[:,ncol_samples-1])
+        self.best_value_trace = list(best_value_trace)
+        self.curt_best_value = best_value_trace[-1]
+        self.curt_best_sample = np.array(best_trace_df.iloc[nrow_samples-1,0:ncol_samples-1])
+        self.sample_counter = nrow_samples
+
+
     
     def dump_trace(self):
         trace_path = 'best_values_trace'
@@ -367,11 +403,11 @@ class MCTS:
                 if self.solver_type == 'bo':
                     samples = leaf.propose_samples_bo( 1, path, self.lb, self.ub, self.samples )
                 elif self.solver_type == 'turbo':
-                    samples, values = leaf.propose_samples_turbo( 10000, path, self.func, num_threads=self.num_threads)
+                    samples, values = leaf.propose_samples_turbo( self.turbo_max_samples, path, self.func, num_threads=self.num_threads)
                     #samples, values = leaf.propose_samples_turbo( 1000, path, self.func )
-                elif self.solver_type == 'scbo':
-                    samples, values = leaf.propose_samples_scbo( 10000, path, self.func , self.ROOT)
-                    #samples, values = leaf.propose_samples_scbo( 1000, path, self.func )
+                #elif self.solver_type == 'scbo':
+                #    samples, values = leaf.propose_samples_scbo( 10000, path, self.func , self.ROOT)
+                #    #samples, values = leaf.propose_samples_scbo( 1000, path, self.func )
                 else:
                     raise Exception("solver not implemented")
                 for idx in range(0, len(samples)):
@@ -391,5 +427,6 @@ class MCTS:
             print("current best x:", self.curt_best_sample )
         
         self.dump_trace()
+
 
 
