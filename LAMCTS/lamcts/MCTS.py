@@ -10,6 +10,7 @@ import math
 from collections import OrderedDict
 import os.path
 import numpy as np
+import pandas as pd
 import time
 import operator
 import sys
@@ -313,7 +314,7 @@ class MCTS:
         self.samples = list(zip(X, fX))
         self.sample_counter
 
-    def load_samples_from_file(samples, best_trace):
+    def load_samples_from_file(self, samples, best_trace):
         """
         samples : path to csv containing samples
         if n columns: 

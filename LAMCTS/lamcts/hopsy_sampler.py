@@ -84,9 +84,9 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
     constr_satisfied = True
 
     num_constrs = len(path)
-    A_constr = np.zeros(num_constrs,dim)
+    A_constr = np.zeros((num_constrs,dim))
     b_constr = np.zeros(num_constrs)
-
+    global_constrs = path[0]
     # we will add the inequality constraint using the hopsy function
     if global_constrs["A_ineq"] is not None and global_constrs["b_ineq"] is not None:
         A = global_constrs["A_ineq"]
@@ -102,7 +102,8 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
     # extract constraints from svc objects
     for i in range(1,len(path)):
         # TODO: want to be able to change based on kernel type?
-        this_classifier = path[i].classifier.svm
+        # path is a list of tuples (classifier,0)
+        this_classifier = path[i][0].classifier.svm
         # matrix with single row, so extract the vector
         coefs = this_classifier.coef_[0]
         # vector with single entry, so extract the scalar
@@ -111,8 +112,9 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
         # coefs^T x + intercept >= 0
         # so to rewrite this in hopsy form,
         # -coefs^T x <= intercept
-        A_constr[i,:] = -coefs
-        b_constr[i] = intercept
+        # oh I guess it was the other way around lol
+        A_constr[i,:] = coefs
+        b_constr[i] = -intercept
 
     problem = hopsy.Problem(A_constr, b_constr, model)
     problem = hopsy.add_box_constraints(problem=problem,lower_bound=lb,upper_bound=ub)
