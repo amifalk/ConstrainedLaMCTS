@@ -32,9 +32,10 @@ class MCTS:
     def __init__(self, 
         lb, ub, 
         A_eq, b_eq, A_ineq, b_ineq, 
-        ninits, func, dims, num_threads,
+        ninits, func, dims, 
+        num_threads, sim_workers, threads_per_sim,
         Cp = 1, leaf_size = 20, kernel_type = "rbf", gamma_type = "auto", solver_type = 'bo',
-        turbo_max_samples=10000, hopsy_thin=150):
+        turbo_max_samples=10000, turbo_batch=1, hopsy_thin=150):
         self.dims                    =  dims
         self.samples                 =  []
         self.nodes                   =  []
@@ -49,7 +50,11 @@ class MCTS:
         self.A_ineq                  = A_ineq
         self.b_ineq                  = b_ineq
         # -----------------------------------
-        self.num_threads             =  num_threads
+        
+        self.num_threads             =  num_threads      # number of total cores available
+        self.sim_workers             =  sim_workers      # number of simulations to run simultaneously
+        self.threads_per_sim         =  threads_per_sim  # number of cores/threads to use per simulation
+        
         self.ninits                  =  ninits
         self.func                    =  func
         self.curt_best_value         =  float("-inf")
@@ -64,6 +69,7 @@ class MCTS:
         
         self.solver_type             =  solver_type #solver can be 'bo' or 'turbo'
         self.turbo_max_samples       =  turbo_max_samples
+        self.turbo_batch             =  turbo_batch
         self.hopsy_thin              =  hopsy_thin 
         
         print("gamma_type:", gamma_type)
@@ -405,7 +411,13 @@ class MCTS:
                 if self.solver_type == 'bo':
                     samples = leaf.propose_samples_bo( 1, path, self.lb, self.ub, self.samples )
                 elif self.solver_type == 'turbo':
-                    samples, values = leaf.propose_samples_turbo( self.turbo_max_samples, path, self.func, num_threads=self.num_threads, hopsy_thin=self.hopsy_thin)
+                    samples, values = leaf.propose_samples_turbo( 
+                        self.turbo_max_samples, path, self.func, self.dims, 
+                        num_threads=self.num_threads, 
+                        sim_workers=self.sim_workers,
+                        threads_per_sim=self.threads_per_sim,
+                        hopsy_thin=self.hopsy_thin, batch_size=self.turbo_batch
+                    )
                     #samples, values = leaf.propose_samples_turbo( 1000, path, self.func )
                 #elif self.solver_type == 'scbo':
                 #    samples, values = leaf.propose_samples_scbo( 10000, path, self.func , self.ROOT)

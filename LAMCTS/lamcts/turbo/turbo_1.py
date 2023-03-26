@@ -24,6 +24,8 @@ from .utils import from_unit_cube, to_unit_cube
 # idk what to do about imports
 from ConstrainedLaMCTS.LAMCTS.lamcts.hopsy_sampler import *
 
+import multiprocess
+
 class Turbo1:
     """The TuRBO-1 algorithm.
 
@@ -59,6 +61,8 @@ class Turbo1:
         n_init,
         max_evals,
         num_threads,
+        sim_workers,
+        threads_per_sim,
         batch_size=1,
         verbose=True,
         use_ard=True,
@@ -103,7 +107,11 @@ class Turbo1:
         self.max_cholesky_size = max_cholesky_size
         self.n_training_steps = n_training_steps
 
+        # my custom parameters
         self.num_threads = num_threads
+        self.sim_workers = sim_workers
+        self.threads_per_sim = threads_per_sim
+        self.hopsy_thin = hopsy_thin
 
         # Hyperparameters
         self.mean = np.zeros((0, 1))
@@ -259,8 +267,8 @@ class Turbo1:
             lb = lb_tr_untransf, 
             ub = ub_tr_untransf, 
             dim = self.dim,
-            threads = self.num_threads
-            thin = hopsy_thin
+            threads = self.num_threads,
+            thin = self.hopsy_thin
         )
         print("hopsy within turbo accept rate:",accept_rate)
         print(np.all([np.all(x <= func_ub) and np.all(x >= func_lb) for x in X_cand]))
@@ -386,7 +394,38 @@ class Turbo1:
             # X_next = from_unit_cube(X_next, self.lb, self.ub)
             
             # Evaluate batch
-            fX_next = np.array([[self.f(x)] for x in X_next])
+            if self.batch_size == 1:
+                fX_next = np.array([[self.f(x)] for x in X_next])
+            else:
+                # parallelize batch evaluation
+                queue_in = multiprocess.SimpleQueue()
+                for x in X_next:
+                    queue_in.put(x)
+                queue_out = multiprocess.Queue()
+
+                def sim_worker(queue_in,queue_out,f):
+                    while not queue_in.empty():
+                        x = queue_in.get()
+                        result = f(x)
+                        queue_out.put((x,f(x)))
+
+                processes = []
+                for proc_num in range(self.sim_workers):
+                    proc = multiprocess.Process(target=sim_worker, args=(queue_in,queue_out,self.f))
+                    processes.append(proc)
+
+                for proc in processes:
+                    proc.start()
+
+                for proc in processes:
+                    proc.join()
+
+                batch_results = []
+                while not queue_out.empty():
+                    batch_results.append(queue_out.get())
+
+                X_next = np.array([result[0] for result in batch_results])
+                fX_next = np.array([[result[1]] for result in batch_results])
             
             # Update trust region
             self._adjust_length(fX_next)
