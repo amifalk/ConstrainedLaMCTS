@@ -1,5 +1,6 @@
 import hopsy
 import numpy as np
+from scipy.optimize import linprog
 
 ######### old "black-box" likelihood approach #############
 # class LAMCTS_hopsy_model:
@@ -74,6 +75,34 @@ class LAMCTS_hopsy_model:
     def compute_negative_log_likelihood(self,x):
         return -np.log(1)
 
+    
+def find_cheb_center(A,b,lb,ub):
+    """
+    given a polytope Ax <= b and lb <= x <= ub, 
+    find the center of the ball of maximal radius contained
+    within the polytope
+    """
+    A_row_norms = np.linalg.norm(A,axis=1,ord=2)
+    cheb_A = np.concatenate([A,np.array([A_row_norms]).T],axis=1)
+    
+    # -1 since scipy.linprog solves minimization problems
+    cheb_c = np.zeros(np.shape(cheb_A)[1])
+    np.put(a=cheb_c,ind=-1,v=-1)
+    
+    # setup upper/lower bounds
+    ub_lb = list(zip(lb,ub))
+    ub_lb.append((0,None))
+    
+    soln = linprog(
+        c=cheb_c,
+        A_ub=cheb_A,
+        b_ub=b, 
+        bounds = ub_lb
+    )
+    
+    # remove the last coordinate, since that describes the radius of the ball
+    return soln.x[:-1]
+    
 def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=10, threads=12):
     """
     sample a function using hopsy?
@@ -112,13 +141,16 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
         # coefs^T x + intercept >= 0
         # so to rewrite this in hopsy form,
         # -coefs^T x <= intercept
-        # oh I guess it was the other way around lol
+        # oh I guess it was the other way around (the set of "good" examples is labeled by 0)
         A_constr[i,:] = coefs
         b_constr[i] = -intercept
 
     problem = hopsy.Problem(A_constr, b_constr, model)
     problem = hopsy.add_box_constraints(problem=problem,lower_bound=lb,upper_bound=ub)
-
+    
+    # if no point supplied: find the chebyshev center
+    if init_point is None:
+        init_point = find_cheb_center(A_constr,b_constr,lb,ub)
 
     # try making one markov chain for each thread?
     # mc = hopsy.MarkovChain(problem, 

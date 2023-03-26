@@ -304,38 +304,18 @@ class Classifier():
                 return self.propose_rand_samples( nums_samples, lb, ub )
             else:
                 return final_cands
-    def propose_rand_samples_hopsy(self, num_samples, path, lb, ub,num_threads):
-        # we still need an initial point: so, if we have one that works, use it.
-        # otherwise, just use accept-reject for 1 point.
-        assert len(lb) == len(ub)
-        dim = len(lb)
-        do_accept_reject = False
-        initial_X = None
-        if len(self.X) != 0:
-            # then check if there are any viable initial points
-            viable_init_points = self.X
-            global_constrs = path[0]
-            if global_constrs["A_ineq"] is not None and global_constrs["b_ineq"] is not None:
-                A = global_constrs["A_ineq"]
-                b = global_constrs["b_ineq"]
-                valid = [ np.all(A@x <= b) for x in viable_init_points]
-                viable_init_points = viable_init_points[valid,:]
-            for node in path[1:]: # skip global constraint
-                boundary = node[0].classifier.svm
-                if len(viable_init_points) == 0:
-                    break
-                assert len(viable_init_points) > 0
-                print(viable_init_points)
-                viable_init_points = viable_init_points[ boundary.predict( viable_init_points ) == node[1] ] 
-                # node[1] store the direction to go
-            if len(viable_init_points) == 0:
-                do_accept_reject = True
-            else:
-                initial_X = viable_init_points[0]
-        if do_accept_reject:
-            sample = self.propose_rand_samples_sobol(1, path, lb, ub)
-            initial_X = sample[0]
-        accept_rate, samples = propose_rand_samples_hopsy(num_samples, initial_X, path, lb, ub, dim, threads=num_threads)
+    def propose_rand_samples_hopsy(self, num_samples, path, lb, ub,num_threads, thin):
+        # no longer need to propose initial point, find it by solving for chebyshev center (in hopsy sampler)
+        accept_rate, samples = propose_rand_samples_hopsy(
+            num_samples=num_samples, 
+            init_point=None, 
+            path=path, 
+            lb=lb, 
+            ub=ub, 
+            dim=dim, 
+            threads=num_threads,
+            thin = thin
+        )
         # is everything in the region?
         print(samples)
         assert np.isclose(self.get_sample_ratio_in_region(samples, path)[0],1)
@@ -379,10 +359,10 @@ class Classifier():
     ###########################
     # version 1: select a partition, perform one-time turbo search
 
-    def propose_samples_turbo(self, num_samples, path, func, num_threads):
+    def propose_samples_turbo(self, num_samples, path, func, num_threads, hopsy_thin):
         #get samples around the selected partition
         n_init = 30
-        accept_rate, X_init = self.propose_rand_samples_hopsy(n_init, path, func.lb, func.ub, num_threads)
+        accept_rate, X_init = self.propose_rand_samples_hopsy(n_init, path, func.lb, func.ub, num_threads, hopsy_thin)
         turbo1 = Turbo1(
             path = path,
             #X_init = self.propose_rand_samples_sobol(30, path, func.lb, func.ub),
@@ -400,7 +380,8 @@ class Classifier():
             min_cuda=1024,          #  Run on the CPU for small datasets
             device="cpu",           # "cpu" or "cuda"
             dtype="float32",        # float64 or float32
-            num_threads = num_threads
+            num_threads = num_threads,
+            hopsy_thin = hopsy_thin
         )
     
         proposed_X, fX = turbo1.optimize( )

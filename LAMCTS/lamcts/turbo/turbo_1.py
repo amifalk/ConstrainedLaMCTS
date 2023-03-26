@@ -66,7 +66,8 @@ class Turbo1:
         n_training_steps=50,
         min_cuda=1024,
         device="cpu",
-        dtype="float64"
+        dtype="float64",
+        hopsy_thin=150
     ):
 
         # Very basic input checks
@@ -259,7 +260,7 @@ class Turbo1:
             ub = ub_tr_untransf, 
             dim = self.dim,
             threads = self.num_threads
-            #thin = int(self.dim*1.5) # heuristic? need more thinning as dims go up
+            thin = hopsy_thin
         )
         print("hopsy within turbo accept rate:",accept_rate)
         print(np.all([np.all(x <= func_ub) and np.all(x >= func_lb) for x in X_cand]))

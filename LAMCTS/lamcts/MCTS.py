@@ -34,7 +34,7 @@ class MCTS:
         A_eq, b_eq, A_ineq, b_ineq, 
         ninits, func, dims, num_threads,
         Cp = 1, leaf_size = 20, kernel_type = "rbf", gamma_type = "auto", solver_type = 'bo',
-        turbo_max_samples=10000):
+        turbo_max_samples=10000, hopsy_thin=150):
         self.dims                    =  dims
         self.samples                 =  []
         self.nodes                   =  []
@@ -64,6 +64,7 @@ class MCTS:
         
         self.solver_type             =  solver_type #solver can be 'bo' or 'turbo'
         self.turbo_max_samples       =  turbo_max_samples
+        self.hopsy_thin              =  hopsy_thin 
         
         print("gamma_type:", gamma_type)
         
@@ -404,7 +405,7 @@ class MCTS:
                 if self.solver_type == 'bo':
                     samples = leaf.propose_samples_bo( 1, path, self.lb, self.ub, self.samples )
                 elif self.solver_type == 'turbo':
-                    samples, values = leaf.propose_samples_turbo( self.turbo_max_samples, path, self.func, num_threads=self.num_threads)
+                    samples, values = leaf.propose_samples_turbo( self.turbo_max_samples, path, self.func, num_threads=self.num_threads, hopsy_thin=self.hopsy_thin)
                     #samples, values = leaf.propose_samples_turbo( 1000, path, self.func )
                 #elif self.solver_type == 'scbo':
                 #    samples, values = leaf.propose_samples_scbo( 10000, path, self.func , self.ROOT)
