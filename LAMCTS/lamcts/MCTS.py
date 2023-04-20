@@ -320,6 +320,7 @@ class MCTS:
         """
         self.samples = list(zip(X, fX))
         self.sample_counter
+        raise NotImplemented
 
     def load_samples_from_file(self, samples, best_trace):
         """
@@ -343,8 +344,6 @@ class MCTS:
         self.curt_best_value = best_value_trace[-1]
         self.curt_best_sample = np.array(best_trace_df.iloc[nrow_samples-1,0:ncol_samples-1])
         self.sample_counter = nrow_samples
-
-
     
     def dump_trace(self):
         trace_path = 'best_values_trace'
@@ -398,7 +397,8 @@ class MCTS:
     def search(self, iterations, max_samples=np.inf):
         n_samples = max_samples
 
-        for idx in range(self.sample_counter, iterations):
+        #for idx in range(self.sample_counter, iterations):
+        for i in range(iterations):
             if self.sample_counter > n_samples:
                 break
             print("")
