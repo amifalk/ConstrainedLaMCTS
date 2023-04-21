@@ -320,7 +320,7 @@ class MCTS:
         """
         self.samples = list(zip(X, fX))
         self.sample_counter
-        raise NotImplemented
+        raise NotImplementedError
 
     def load_samples_from_file(self, samples, best_trace):
         """
@@ -398,7 +398,7 @@ class MCTS:
         n_samples = max_samples
 
         #for idx in range(self.sample_counter, iterations):
-        for i in range(iterations):
+        for idx in range(iterations):
             if self.sample_counter > n_samples:
                 break
             print("")

@@ -102,7 +102,19 @@ def find_cheb_center(A,b,lb,ub):
     
     # remove the last coordinate, since that describes the radius of the ball
     return soln.x[:-1]
-    
+
+def find_interior_point(A,b,lb,ub):
+    c = np.zeros(np.shape(A)[1])
+    ub_lb = list(zip(lb,ub))
+    soln = linprog(
+        c=c,
+        A=A,
+        b_ub=b,
+        bounds = ub_lb,
+        method="highs-ipm"
+    )
+    return soln
+
 def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=10, threads=12):
     """
     sample a function using hopsy?
@@ -150,7 +162,7 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
     
     # if no point supplied: find the chebyshev center
     if init_point is None:
-        init_point = find_cheb_center(A_constr,b_constr,lb,ub)
+        init_point = find_interior_point(A_constr,b_constr,lb,ub)
 
     # try making one markov chain for each thread?
     # mc = hopsy.MarkovChain(problem, 
