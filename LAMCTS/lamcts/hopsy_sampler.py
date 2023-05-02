@@ -108,12 +108,12 @@ def find_interior_point(A,b,lb,ub):
     ub_lb = list(zip(lb,ub))
     soln = linprog(
         c=c,
-        A=A,
+        A_ub=A,
         b_ub=b,
         bounds = ub_lb,
-        method="highs-ipm"
+        method="interior-point"
     )
-    return soln
+    return soln.x
 
 def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=10, threads=12):
     """
@@ -170,7 +170,7 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
     #     starting_point=init_point)
     mc = [
         hopsy.MarkovChain(
-            problem, proposal=hopsy.DikinWalkProposal, starting_point=init_point
+            problem, proposal=hopsy.UniformCoordinateHitAndRunProposal, starting_point=init_point
         )
         for i in range(threads)
     ]
