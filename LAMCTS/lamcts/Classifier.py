@@ -304,38 +304,18 @@ class Classifier():
                 return self.propose_rand_samples( nums_samples, lb, ub )
             else:
                 return final_cands
-    def propose_rand_samples_hopsy(self, num_samples, path, lb, ub):
-        # we still need an initial point: so, if we have one that works, use it.
-        # otherwise, just use accept-reject for 1 point.
-        assert len(lb) == len(ub)
-        dim = len(lb)
-        do_accept_reject = False
-        initial_X = None
-        if len(self.X) != 0:
-            # then check if there are any viable initial points
-            viable_init_points = self.X
-            global_constrs = path[0]
-            if global_constrs["A_ineq"] is not None and global_constrs["b_ineq"] is not None:
-                A = global_constrs["A_ineq"]
-                b = global_constrs["b_ineq"]
-                valid = [ np.all(A@x <= b) for x in viable_init_points]
-                viable_init_points = viable_init_points[valid,:]
-            for node in path[1:]: # skip global constraint
-                boundary = node[0].classifier.svm
-                if len(viable_init_points) == 0:
-                    break
-                assert len(viable_init_points) > 0
-                print(viable_init_points)
-                viable_init_points = viable_init_points[ boundary.predict( viable_init_points ) == node[1] ] 
-                # node[1] store the direction to go
-            if len(viable_init_points) == 0:
-                do_accept_reject = True
-            else:
-                initial_X = viable_init_points[0]
-        if do_accept_reject:
-            sample = self.propose_rand_samples_sobol(1, path, lb, ub)
-            initial_X = sample[0]
-        accept_rate, samples = propose_rand_samples_hopsy(num_samples, initial_X, path, lb, ub, dim)
+    def propose_rand_samples_hopsy(self, num_samples, path, dim, lb, ub,num_threads, thin):
+        # no longer need to propose initial point, find it by solving for chebyshev center (in hopsy sampler)
+        accept_rate, samples = propose_rand_samples_hopsy(
+            num_samples=num_samples, 
+            init_point=None, 
+            path=path, 
+            lb=lb, 
+            ub=ub, 
+            dim=dim, 
+            threads=num_threads,
+            thin = thin
+        )
         # is everything in the region?
         print(samples)
         assert np.isclose(self.get_sample_ratio_in_region(samples, path)[0],1)
@@ -379,10 +359,12 @@ class Classifier():
     ###########################
     # version 1: select a partition, perform one-time turbo search
 
-    def propose_samples_turbo(self, num_samples, path, func):
+    def propose_samples_turbo(self, num_samples, path, func, dim, 
+                              num_threads, sim_workers, threads_per_sim,
+                              hopsy_thin, batch_size):
         #get samples around the selected partition
         n_init = 30
-        accept_rate, X_init = self.propose_rand_samples_hopsy(n_init, path, func.lb, func.ub)
+        accept_rate, X_init = self.propose_rand_samples_hopsy(n_init, path, dim, func.lb, func.ub, num_threads, hopsy_thin)
         turbo1 = Turbo1(
             path = path,
             #X_init = self.propose_rand_samples_sobol(30, path, func.lb, func.ub),
@@ -392,14 +374,18 @@ class Classifier():
             ub = func.ub,           # Numpy array specifying upper bounds
             n_init = n_init,          # Number of initial points to sample
             max_evals  = num_samples, # Maximum number of evaluations
-            batch_size = 1,         # How large batch size TuRBO uses
+            batch_size = batch_size,         # How large batch size TuRBO uses
             verbose=True,           # Print information from each batch
             use_ard=True,           # Set to true if you want to use ARD for the GP kernel
             max_cholesky_size=2000, # When we switch from Cholesky to Lanczos
             n_training_steps=50,    # Number of steps of ADAM to learn the hypers
             min_cuda=1024,          #  Run on the CPU for small datasets
             device="cpu",           # "cpu" or "cuda"
-            dtype="float32"        # float64 or float32
+            dtype="float32",        # float64 or float32
+            num_threads = num_threads,
+            sim_workers= sim_workers,
+            threads_per_sim=threads_per_sim,
+            hopsy_thin = hopsy_thin
         )
     
         proposed_X, fX = turbo1.optimize( )

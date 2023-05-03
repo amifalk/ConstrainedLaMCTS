@@ -129,7 +129,7 @@ def vacc_bayes_opt_w_constr(
         next_query_acqval = np.inf
         for opt_number in range(opt_restarts):
             starting_point = constraint_sample(1, dim, V_0, P, c)[0]
-            print(starting_point,flush=True)
+            #print(starting_point,flush=True)
             acq_opt = scipy.optimize.minimize(
                     fun=acq,
                     x0=starting_point,
@@ -138,23 +138,30 @@ def vacc_bayes_opt_w_constr(
             if acq_opt['fun'] < next_query_acqval:
                 next_query_x = acq_opt['x']
                 next_query_acqval = acq_opt['fun']
+
+        # enforce the problem bounds (no negatives)
+        next_query_x = np.clip(next_query_x, np.zeros(dim), np.ones(dim))
+
         next_fval = np.mean(vacc_engine.query(V_delta=next_query_x, pool=pool, n_sim=n_sim))
-        print("query mat")
-        print(query_pts)
+        #print("query mat")
+        #print(query_pts)
         query_pts = np.append(query_pts,[next_query_x],axis=0)  # add it to the rows
         query_fvals = np.append(query_fvals,next_fval)
 
-        print(next_query_x,next_fval)
-
+        #print(next_query_x,next_fval)
+        print("function:",next_fval,", best :", best_max_sofar, flush=True)
         model = gp.GaussianProcessRegressor(alpha=noise_prior)
         model.fit(query_pts,query_fvals)
 
-        dist_btwn_pts = np.linalg.norm(last_query_x-next_query_x,ord=np.inf)
+        #dist_btwn_pts = np.linalg.norm(last_query_x-next_query_x,ord=np.inf)
         last_query_x = next_query_x
         n_iters += 1
-    last_query_x = np.array([round(x) if np.isclose(x,0) else x for x in last_query_x])
-    print(last_query_x)
-    print(vacc_engine.check_constraint(last_query_x))
+    #last_query_x = np.array([round(x) if np.isclose(x,0) else x for x in last_query_x])
+    #print(last_query_x)
+    #print(vacc_engine.check_constraint(last_query_x))
+
+    print(best_argmax_sofar)
+    print(best_max_sofar)
 
         #print(max_ucb)
         ##max_ucb['x']

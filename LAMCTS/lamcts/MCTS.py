@@ -10,6 +10,7 @@ import math
 from collections import OrderedDict
 import os.path
 import numpy as np
+import pandas as pd
 import time
 import operator
 import sys
@@ -23,14 +24,18 @@ from torch.quasirandom import SobolEngine
 import torch
 
 from diversipy import polytope
+import dill
+
 class MCTS:
     #############################################
 
     def __init__(self, 
         lb, ub, 
         A_eq, b_eq, A_ineq, b_ineq, 
-        ninits, func, dims,
-        Cp = 1, leaf_size = 20, kernel_type = "rbf", gamma_type = "auto", solver_type = 'bo'):
+        ninits, func, dims, 
+        num_threads, sim_workers, threads_per_sim,
+        Cp = 1, leaf_size = 20, kernel_type = "rbf", gamma_type = "auto", solver_type = 'bo',
+        turbo_max_samples=10000, turbo_batch=1, hopsy_thin=150):
         self.dims                    =  dims
         self.samples                 =  []
         self.nodes                   =  []
@@ -45,6 +50,11 @@ class MCTS:
         self.A_ineq                  = A_ineq
         self.b_ineq                  = b_ineq
         # -----------------------------------
+        
+        self.num_threads             =  num_threads      # number of total cores available
+        self.sim_workers             =  sim_workers      # number of simulations to run simultaneously
+        self.threads_per_sim         =  threads_per_sim  # number of cores/threads to use per simulation
+        
         self.ninits                  =  ninits
         self.func                    =  func
         self.curt_best_value         =  float("-inf")
@@ -58,6 +68,9 @@ class MCTS:
         self.gamma_type              =  gamma_type
         
         self.solver_type             =  solver_type #solver can be 'bo' or 'turbo'
+        self.turbo_max_samples       =  turbo_max_samples
+        self.turbo_batch             =  turbo_batch
+        self.hopsy_thin              =  hopsy_thin 
         
         print("gamma_type:", gamma_type)
         
@@ -219,23 +232,118 @@ class MCTS:
     def reset_to_root(self):
         self.CURT = self.ROOT
     
-    def load_agent(self):
-        node_path = 'mcts_agent'
-        if os.path.isfile(node_path) == True:
-            with open(node_path, 'rb') as json_data:
-                self = pickle.load(json_data)
-                print("=====>loads:", len(self.samples)," samples" )
+    def load_agent(self, load_path='mcts_agent'):
+        with open(load_path, 'rb') as data:
+            #self = dill.load(data)
+            print("loading state data",flush=True)
+            state = dill.load(data)
+            self.dims = state["dims"]
+            self.samples = state["samples"]
+            self.nodes = state["nodes"]
+            self.Cp = state["Cp"]
+            self.lb = state["lb"]
+            self.ub = state["ub"]
+            self.A_eq = state["A_eq"]
+            self.b_eq = state["b_eq"]
+            self.A_ineq = state["A_ineq"]
+            self.b_ineq = state["b_ineq"]
+            self.num_threads = state["num_threads"]
+            self.ninits = state["ninits"]
+            self.curt_best_value = state["curt_best_value"]
+            self.curt_best_sample = state["curt_best_sample"]
+            self.best_value_trace = state["best_value_trace"]
+            self.sample_counter = state["sample_counter"]
+            self.visualization = state["visualization"]
+            self.LEAF_SAMPLE_SIZE = state["LEAF_SAMPLE_SIZE"]
+            self.kernel_type = state["kernel_type"]
+            self.gamma_type = state["gamma_type"]
+            self.solver_type = state["solver_type"]
+            print("=====>loads:", len(self.samples)," samples",flush=True)
+            print("WARNING: Be sure to restore the state of the function!! It has not been loaded.",flush=True)
 
-    def dump_agent(self):
-        node_path = 'mcts_agent'
+
+    def dump_agent(self, out_dir=None, name='mcts_agent'):
+        if out_dir is None:
+            node_path = name
+        elif not os.path.exists(out_dir):
+            node_path = name
+        else:
+            node_path = out_dir + name
         print("dumping the agent.....")
         with open(node_path,"wb") as outfile:
-            pickle.dump(self, outfile)
+            # dill.dump(self, outfile)
+            # because the func object will contain a multiprocess.Pool,
+            # we cannot pickle it. So we just have to pickle everything 
+            # else and restore the state of the objective function manually.
+            state = {
+                "dims" : self.dims,
+                "samples" : self.samples,
+                "nodes" : self.nodes,
+                "Cp" : self.Cp,
+                "lb" : self.lb,
+                "ub" : self.ub,
+                "A_eq" : self.A_eq,
+                "b_eq" : self.b_eq,
+                "A_ineq" : self.A_ineq,
+                "b_ineq" : self.b_ineq,
+                "num_threads" : self.num_threads,
+                "ninits" : self.ninits,
+                "curt_best_value" : self.curt_best_value,
+                "curt_best_sample" : self.curt_best_sample,
+                "best_value_trace" : self.best_value_trace,
+                "sample_counter" : self.sample_counter,
+                "visualization" : self.visualization,
+                "LEAF_SAMPLE_SIZE" : self.LEAF_SAMPLE_SIZE,
+                "kernel_type" : self.kernel_type,
+                "gamma_type" : self.gamma_type,
+                "solver_type" : self.solver_type
+            }
+            dill.dump(state, outfile)
             
-    def dump_samples(self):
-        sample_path = 'samples_'+str(self.sample_counter)
-        with open(sample_path, "wb") as outfile:
-            pickle.dump(self.samples, outfile)
+    def dump_samples(self, out_dir=None, name='mcts_agent'):
+        sample_path = '{}_samples_'+str(self.sample_counter)
+        if out_dir is None:
+            path = sample_path.format(name)
+        elif not os.path.exists(out_dir):
+            path = sample_path.format(name)
+        else:
+            path = out_dir + sample_path.format(name)
+
+        with open(path, "wb") as outfile:
+            dill.dump(self.samples, outfile)
+
+    def load_samples(self, X, fX, best_X=None, best_fX=None):
+        """
+        X : list of numpy vectors
+        fX : list of scalars?
+        best_X, best_fX : optional 
+        """
+        self.samples = list(zip(X, fX))
+        self.sample_counter
+        raise NotImplementedError
+
+    def load_samples_from_file(self, samples, best_trace):
+        """
+        samples : path to csv containing samples
+        if n columns: 
+            columns 1 - (n-1) should contain the X,
+            column n should contain the function value
+        best_trace: 
+            path to csv containing best trace
+        """
+        samples_df = pd.read_csv(samples, header=None)
+        best_trace_df = pd.read_csv(best_trace, header=None)
+        ncol_samples = samples_df.shape[1]
+        nrow_samples = samples_df.shape[0]
+        X_samples = np.array(samples_df.iloc[:,0:ncol_samples-1])
+        fX_samples = np.array(samples_df.iloc[:,ncol_samples-1])
+        self.samples = list(zip(X_samples,fX_samples))
+
+        best_value_trace = np.array(best_trace_df.iloc[:,ncol_samples-1])
+        self.best_value_trace = list(best_value_trace)
+        self.curt_best_value = best_value_trace[-1]
+        self.curt_best_sample = np.array(best_trace_df.iloc[nrow_samples-1,0:ncol_samples-1])
+        self.sample_counter = nrow_samples
     
     def dump_trace(self):
         trace_path = 'best_values_trace'
@@ -286,10 +394,11 @@ class MCTS:
             curt_node.n    += 1
             curt_node       = curt_node.parent
 
-    def search(self, iterations):
-        n_samples = 1000
+    def search(self, iterations, max_samples=np.inf):
+        n_samples = max_samples
 
-        for idx in range(self.sample_counter, iterations):
+        #for idx in range(self.sample_counter, iterations):
+        for idx in range(iterations):
             if self.sample_counter > n_samples:
                 break
             print("")
@@ -302,11 +411,17 @@ class MCTS:
                 if self.solver_type == 'bo':
                     samples = leaf.propose_samples_bo( 1, path, self.lb, self.ub, self.samples )
                 elif self.solver_type == 'turbo':
-                    samples, values = leaf.propose_samples_turbo( 10000, path, self.func )
+                    samples, values = leaf.propose_samples_turbo( 
+                        self.turbo_max_samples, path, self.func, self.dims, 
+                        num_threads=self.num_threads, 
+                        sim_workers=self.sim_workers,
+                        threads_per_sim=self.threads_per_sim,
+                        hopsy_thin=self.hopsy_thin, batch_size=self.turbo_batch
+                    )
                     #samples, values = leaf.propose_samples_turbo( 1000, path, self.func )
-                elif self.solver_type == 'scbo':
-                    samples, values = leaf.propose_samples_scbo( 10000, path, self.func , self.ROOT)
-                    #samples, values = leaf.propose_samples_scbo( 1000, path, self.func )
+                #elif self.solver_type == 'scbo':
+                #    samples, values = leaf.propose_samples_scbo( 10000, path, self.func , self.ROOT)
+                #    #samples, values = leaf.propose_samples_scbo( 1000, path, self.func )
                 else:
                     raise Exception("solver not implemented")
                 for idx in range(0, len(samples)):
@@ -326,5 +441,6 @@ class MCTS:
             print("current best x:", self.curt_best_sample )
         
         self.dump_trace()
+
 
 
