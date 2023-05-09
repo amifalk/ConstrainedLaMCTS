@@ -360,7 +360,7 @@ class Classifier():
     # version 1: select a partition, perform one-time turbo search
 
     def propose_samples_turbo(self, num_samples, path, func, dim, 
-                              num_threads, sim_workers, threads_per_sim,
+                              num_threads, sim_workers, threads_per_sim, pools,
                               hopsy_thin, batch_size):
         #get samples around the selected partition
         n_init = 30
@@ -385,6 +385,7 @@ class Classifier():
             num_threads = num_threads,
             sim_workers= sim_workers,
             threads_per_sim=threads_per_sim,
+            pools = pools,
             hopsy_thin = hopsy_thin
         )
     

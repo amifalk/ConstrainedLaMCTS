@@ -63,6 +63,7 @@ class Turbo1:
         num_threads,
         sim_workers,
         threads_per_sim,
+        pools,
         batch_size=1,
         verbose=True,
         use_ard=True,
@@ -111,6 +112,7 @@ class Turbo1:
         self.num_threads = num_threads
         self.sim_workers = sim_workers
         self.threads_per_sim = threads_per_sim
+        self.pools = pools
         self.hopsy_thin = hopsy_thin
 
         # Hyperparameters
@@ -358,8 +360,17 @@ class Turbo1:
         
         # Generate and evalute initial design points
         print("Evaluating initial points")
-        fX_init = np.array([[self.f(x)] for x in self.X_init])
-        
+        #fX_init = np.array([[self.f(x)] for x in self.X_init])
+
+        fX_init = []
+        queue = [point for point in self.X_init]
+        for i in range(self.n_init//self.sim_workers):
+            next_Xs = [queue.pop() for i in range(self.sim_workers)]
+            next_Ys = self.f(next_Xs, pool = self.pools, batch = True)
+            fX_init += [[y] for y in next_Ys]
+        for point in queue:
+            fX_init += [[self.f(point)]]
+        fX_init = np.array(fX_init)
         # Update budget and set as initial data for this TR
         self.n_evals += self.n_init
         self._X = deepcopy(self.X_init)
@@ -397,36 +408,14 @@ class Turbo1:
             if self.batch_size == 1:
                 fX_next = np.array([[self.f(x)] for x in X_next])
             else:
-                # parallelize batch evaluation
-                queue_in = multiprocess.SimpleQueue()
-                for x in X_next:
-                    queue_in.put(x)
-                queue_out = multiprocess.Queue()
-
-                def sim_worker(queue_in,queue_out,f):
-                    while not queue_in.empty():
-                        x = queue_in.get()
-                        result = f(x)
-                        queue_out.put((x,f(x)))
-
-                processes = []
-                for proc_num in range(self.sim_workers):
-                    proc = multiprocess.Process(target=sim_worker, args=(queue_in,queue_out,self.f))
-                    processes.append(proc)
-
-                for proc in processes:
-                    proc.start()
-
-                for proc in processes:
-                    proc.join()
-
-                batch_results = []
-                while not queue_out.empty():
-                    batch_results.append(queue_out.get())
-
-                X_next = np.array([result[0] for result in batch_results])
-                fX_next = np.array([[result[1]] for result in batch_results])
-            
+                queue = [point for point in self.X_next]
+                for i in range(self.n_init//self.sim_workers):
+                    next_Xs = [queue.pop() for i in range(self.sim_workers)]
+                    next_Ys = self.f(next_Xs, pool = self.pools, batch = True)
+                    fX_next += [[y] for y in next_Ys]
+                for point in queue:
+                    fX_next += [[self.f(point)]]
+            fX_next = np.array(fX_next)
             # Update trust region
             self._adjust_length(fX_next)
             

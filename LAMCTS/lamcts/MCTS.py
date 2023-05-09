@@ -25,6 +25,7 @@ import torch
 
 from diversipy import polytope
 import dill
+import multiprocess
 
 class MCTS:
     #############################################
@@ -54,6 +55,7 @@ class MCTS:
         self.num_threads             =  num_threads      # number of total cores available
         self.sim_workers             =  sim_workers      # number of simulations to run simultaneously
         self.threads_per_sim         =  threads_per_sim  # number of cores/threads to use per simulation
+        self.pools                   =  [multiprocess.Pool(self.threads_per_sim) for i in range(self.sim_workers)]
         
         self.ninits                  =  ninits
         self.func                    =  func
@@ -211,10 +213,14 @@ class MCTS:
         # TODO: can add hopsy later?
         init_points = self.constraint_sample(self.ninits)
         print(init_points)
-
-        for point in init_points:
+        queue = [point for point in init_points]
+        for i in range(self.ninits//self.sim_workers):
+            next_Xs = [queue.pop() for i in range(self.sim_workers)]
+            next_Ys = self.func(next_Xs, pool = self.pools, batch = True)
+            for point,value in zip(next_Xs,next_Ys):
+                self.collect_samples(point,value=value)
+        for point in queue:
             self.collect_samples(point)
-        
         print("="*10 + 'collect '+ str(len(self.samples) ) +' points for initializing MCTS'+"="*10)
         print("lb:", self.lb)
         print("ub:", self.ub)
@@ -413,6 +419,7 @@ class MCTS:
                 elif self.solver_type == 'turbo':
                     samples, values = leaf.propose_samples_turbo( 
                         self.turbo_max_samples, path, self.func, self.dims, 
+                        pools = self.pools,
                         num_threads=self.num_threads, 
                         sim_workers=self.sim_workers,
                         threads_per_sim=self.threads_per_sim,

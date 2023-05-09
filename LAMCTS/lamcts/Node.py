@@ -114,11 +114,11 @@ class Node:
         return proposed_X
         
     def propose_samples_turbo(self, num_samples, path, func, dim, 
-                              num_threads, sim_workers, threads_per_sim, 
+                              num_threads, sim_workers, threads_per_sim, pools,
                               hopsy_thin, batch_size):
         proposed_X, fX = self.classifier.propose_samples_turbo(
             num_samples, path, func, dim, 
-            num_threads=num_threads, sim_workers=sim_workers, threads_per_sim=threads_per_sim,
+            num_threads=num_threads, sim_workers=sim_workers, threads_per_sim=threads_per_sim, pools=pools,
             hopsy_thin=hopsy_thin, batch_size=batch_size
         )
         return proposed_X, fX
