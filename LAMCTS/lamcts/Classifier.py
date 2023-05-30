@@ -318,7 +318,11 @@ class Classifier():
         )
         # is everything in the region?
         print(samples)
-        assert np.isclose(self.get_sample_ratio_in_region(samples, path)[0],1)
+        ratio, samples = self.get_sample_ratio_in_region(samples, path)
+        if not np.isclose(ratio,1):
+            print("WARNING: not all samples fell in constrained region")
+            print("Ratio of candidate samples in region: {}".format(ratio))
+            print("Effective sample size: {}".format(len(samples)))
         return accept_rate, samples
         
     def propose_samples_bo( self, nums_samples = 10, path = None, lb = None, ub = None, samples = None):
