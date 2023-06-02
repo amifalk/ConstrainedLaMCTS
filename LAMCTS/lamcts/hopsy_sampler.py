@@ -144,6 +144,7 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
     for i in range(1,len(path)):
         # TODO: want to be able to change based on kernel type?
         # path is a list of tuples (classifier,0)
+        this_node = path[i][0]
         this_classifier = path[i][0].classifier.svm
         # matrix with single row, so extract the vector
         coefs = this_classifier.coef_[0]
@@ -154,8 +155,12 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
         # so to rewrite this in hopsy form,
         # -coefs^T x <= intercept
         # oh I guess it was the other way around (the set of "good" examples is labeled by 0)
-        A_constr[i,:] = coefs
-        b_constr[i] = -intercept
+        if this_node.is_good_kid():
+            A_constr[i,:] = coefs
+            b_constr[i] = -intercept
+        else:
+            A_constr[i,:] = -coefs
+            b_constr[i] = intercept
 
     problem = hopsy.Problem(A_constr, b_constr, model)
     problem = hopsy.add_box_constraints(problem=problem,lower_bound=lb,upper_bound=ub)
