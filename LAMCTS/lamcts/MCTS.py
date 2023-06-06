@@ -380,8 +380,8 @@ class MCTS:
         self.reset_to_root()
         curt_node = self.ROOT
         path      = [self.GLOBAL_CONSTRAINT] # Always include the global constraint information!
-        
-        while curt_node.is_leaf() == False:
+
+        while not curt_node.is_leaf():
             UCT = []
             for i in curt_node.kids:
                 UCT.append( i.get_uct(self.Cp) )

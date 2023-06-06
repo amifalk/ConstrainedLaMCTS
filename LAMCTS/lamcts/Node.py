@@ -51,8 +51,7 @@ class Node:
                 return True
             else:
                 return False
-        else:
-            return False
+        return False
     
     def is_leaf(self):
         if len(self.kids) == 0:
