@@ -137,8 +137,10 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
         b = np.array([np.inf])
 
     # let the global constraint occupy the first spot...
-    A_constr[0,:] = A[0]
-    b_constr[0] = b[0]
+    #A_constr[0,:] = A[0]
+    #b_constr[0] = b[0]
+    A_constr = A
+    b_constr = b
 
     # extract constraints from svc objects
     print(path)
@@ -159,11 +161,17 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
         # -coefs^T x <= intercept
         # oh I guess it was the other way around (the set of "good" examples is labeled by 0)
         if this_choice == 1:
-            A_constr[i,:] = -coefs
-            b_constr[i] = intercept
+            this_constr_LHS = np.array([-coefs])
+            this_constr_RHS = intercept
+            #A_constr[i,:] = -coefs
+            #b_constr[i] = intercept
         else:
-            A_constr[i,:] = coefs
-            b_constr[i] = -intercept
+            this_constr_LHS = np.array([coefs])
+            this_constr_RHS = -intercept
+            #A_constr[i,:] = coefs
+            #b_constr[i] = -intercept
+        A_constr = np.vstack(A_constr, this_constr_LHS)
+        b_constr = np.append(b_constr, this_constr_RHS)
 
     problem = hopsy.Problem(A_constr, b_constr, model)
     problem = hopsy.add_box_constraints(problem=problem,lower_bound=lb,upper_bound=ub)
