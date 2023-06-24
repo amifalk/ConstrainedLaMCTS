@@ -170,7 +170,7 @@ def propose_rand_samples_hopsy(num_samples, init_point, path, lb, ub, dim, thin=
             this_constr_RHS = -intercept
             #A_constr[i,:] = coefs
             #b_constr[i] = -intercept
-        A_constr = np.vstack(A_constr, this_constr_LHS)
+        A_constr = np.vstack([A_constr, this_constr_LHS])
         b_constr = np.append(b_constr, this_constr_RHS)
 
     problem = hopsy.Problem(A_constr, b_constr, model)

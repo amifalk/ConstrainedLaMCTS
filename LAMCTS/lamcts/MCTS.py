@@ -26,6 +26,7 @@ import torch
 from diversipy import polytope
 import dill
 import multiprocess
+from ConstrainedLaMCTS.LAMCTS.lamcts.hopsy_sampler import *
 
 class MCTS:
     #############################################
@@ -174,32 +175,41 @@ class MCTS:
     
     def constraint_sample(self,n):
         # no inequality constraints, do have equality constraint
-        if self.A_ineq is None and self.b_ineq is None and self.A_eq is not None and self.b_eq is not None:
-            samples = polytope.sample(
-                    n_points=n,
-                    lower=self.lb,
-                    upper=self.ub,
-                    A2=self.A_eq,
-                    b2=self.b_eq
-            )
-        if self.A_ineq is not None and self.b_ineq is not None and self.A_eq is None and self.b_eq is None:
-            samples = polytope.sample(
-                    n_points=n,
-                    lower=self.lb,
-                    upper=self.ub,
-                    A1=self.A_ineq,
-                    b1=self.b_ineq
-            )
-        else: # just assume for now everything provided
-            samples = polytope.sample(
-                    n_points=n,
-                    lower=self.lb,
-                    upper=self.ub,
-                    A1=self.A_ineq,
-                    b1=self.b_ineq,
-                    A2=self.A_eq,
-                    b2=self.b_eq
-            )
+        # if self.A_ineq is None and self.b_ineq is None and self.A_eq is not None and self.b_eq is not None:
+        #     samples = polytope.sample(
+        #             n_points=n,
+        #             lower=self.lb,
+        #             upper=self.ub,
+        #             A2=self.A_eq,
+        #             b2=self.b_eq
+        #     )
+        # if self.A_ineq is not None and self.b_ineq is not None and self.A_eq is None and self.b_eq is None:
+        #     samples = polytope.sample(
+        #             n_points=n,
+        #             lower=self.lb,
+        #             upper=self.ub,
+        #             A1=self.A_ineq,
+        #             b1=self.b_ineq
+        #     )
+        # else: # just assume for now everything provided
+        #     samples = polytope.sample(
+        #             n_points=n,
+        #             lower=self.lb,
+        #             upper=self.ub,
+        #             A1=self.A_ineq,
+        #             b1=self.b_ineq,
+        #             A2=self.A_eq,
+        #             b2=self.b_eq
+        #     )
+        accept_rate, samples = propose_rand_samples_hopsy(
+                num_samples=n,
+                init_point=None, 
+                path = [self.GLOBAL_CONSTRAINT], 
+                lb=self.lb,
+                ub=self.ub, dim=self.dims, 
+                thin=self.hopsy_thin, 
+                threads=self.num_threads
+        )
         return samples
 
     def init_train(self):
